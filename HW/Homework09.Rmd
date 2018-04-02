@@ -92,39 +92,13 @@ routes <- read_csv("https://raw.githubusercontent.com/jpatokal/openflights/maste
 #  Manipulate the routes data to create two new data.frames
 #    one for arrivals, one for departures.  
 #  Each counts the number of flights arriving/departing from each airport.
-departures <- routes %>%
-  group_by(sourceAirportID) %>%
-  summarize(flights = n()) %>%
-  mutate(sourceAirportID = as.integer(as.vector(sourceAirportID)))
-
 arrivals <- routes %>%
   group_by(destinationAirportID) %>%
   summarize(flights = n()) %>%
   mutate(destinationAirportID = as.integer(as.vector(destinationAirportID)))
 
 #  Merge each of the arrivals/departures data.frames with the airports data.frame above
-airportD <- left_join(airports, departures, by = c("ID" = "sourceAirportID"))
 airportA <- left_join(airports, arrivals, by = c("ID" = "destinationAirportID"))
-
-#  Create data.frame of routes to/from a specific city
-my_airport_code <- "PIT"
-my_routes <- filter(routes, 
-                    sourceAirport == my_airport_code | 
-                      destinationAirport == my_airport_code)
-
-#  Add in relevant information from the airports data.frame
-#  Do this in two steps, so that you first pull in the source airport information
-#  and then pull in the destination airport information
-#  This can be done easily with two calls to left_join()
-#  The rest of the code is just formatting
-my_airport_data <- my_routes %>%
-  left_join(airports, by = c("sourceAirport" = "IATA_FAA")) %>%
-  select(destinationAirport, lat, lon, timezone) %>%
-  rename(source_lat = lat, source_lon = lon, source_timezone = timezone) %>%
-  left_join(airports, by = c("destinationAirport" = "IATA_FAA")) %>%
-  select(source_lat, source_lon, source_timezone, lat, lon, timezone) %>%
-  rename(dest_lat = lat, dest_lon = lon, dest_timezone = timezone)
-
 ```
 
 ```{r, warning=FALSE, message=FALSE}
@@ -151,6 +125,7 @@ airports_map
 
 ```{r, warning = FALSE, message=FALSE}
 flights_data <- routes %>% 
+  #Only flights to/from vancouver
   filter(routes$sourceAirport == 'YVR' | routes$destinationAirport == 'YVR') %>%
   left_join(airports, by = c("sourceAirport" = "IATA_FAA")) %>%
   select(destinationAirport, lat, lon, timezone) %>%
@@ -173,7 +148,8 @@ airports_map +
 *This time, do this only for flights that **arrive at** the Vancouver, BC airport (`YVR`).*
 
 ```{r, warning=FALSE, message=FALSE}
-flights_data <- routes %>% 
+flights_data <- routes %>%
+  #Only flights to vancouver
   filter(routes$destinationAirport == 'YVR') %>%
   left_join(airports, by = c("sourceAirport" = "IATA_FAA")) %>%
   select(destinationAirport, lat, lon, timezone) %>%
@@ -184,6 +160,7 @@ flights_data <- routes %>%
 
 flights_data$time_diff = flights_data$source_timezone - flights_data$dest_timezone
 
+#Only continental US flights. Chosen to make color scale more meaningful
 flights_data <- filter(flights_data, flights_data$time_diff <= 4 & flights_data$time_diff >= 0)
 
 airports_map +
