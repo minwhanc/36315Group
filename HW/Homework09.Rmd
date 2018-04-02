@@ -1,0 +1,306 @@
+---
+title: "36-315 Homework 09, Spring 2018"
+author: "[Names and Andrew IDs of all members of your Group]"
+date: "Due Wednesday, April 4, 2018 (11:59pm) on Canvas"
+output: 
+  html_document:
+    toc:  true
+    toc_float:  true
+    code_folding:  show
+---
+
+#  Homework 09:  Maps
+
+***
+***
+
+***General instructions for all assignments***: 
+
++ Use this file as the template for your submission.
++ Upload your edited `R` Markdown file **and** the knitted .html file, to the Homework 09 submission section on Canvas. (If you cannot upload 2 files at once to Canvas in Chrome, try another browser such as Firefox.). You want to name the .Rmd with all the Andrew IDs of the groups in the filename - e.g. [AndrewID1]-[AndrewID2]-[AndrewID3]-[AndrewID4]-Homework09.Rmd if the group was made of four members. **If you do not include both the .Rmd and .html files, you will automatically lose 10 points.**
++ The instructor and TAs will run your .Rmd file on their computers. **If your .Rmd file does not knit on our computers, you will automatically lose 10 points.**
++ Your file should contain the code to answer each question in its own code block. Your code should produce plots/output that will be automatically embedded in the output (.html) file
++ Each answer must be supported by written statements (unless otherwise specified)
++ Include the full names and Andrew IDs of the members of your group in Problem 0.
++ Include names of classmates with whom you have collaborated in Problem 0 - outside the ones from your group.
++ Include the style guide you used in Problem 0. **If you do not include and follow a style guide, you will automatically lose 10 points.**
+
+
+***
+***
+
+# Problem 0
+
+**Administrative checklist**
+
+*Please remember to take care of the following things not to lose points in your submission:*
+
+* *Put brief but informative titles, labels, etc. on each graph*
+* *Submit **both** .html and .Rmd file*
+* *Check that you submitted the right files (this assignment & this class)*
+* *If you embed an image locally, submit that image as well with the same name you use in the .Rmd file*
+
+*Keep just one:*
+
+* "We used Google's R style guide."
+* "We used Hadley Wickham's R style guide."
+
+*Keep just those that apply, and fill in details as needed:*
+
+* "This submission is for the following group: ______[list names and AndrewIDs]______
+* "I worked with _____[list names]_____ on this assignment, outside of the member of this group."
+* "I received assistance from _____[list campus resource(s)]_____ on this assignment."
+
+***
+***
+
+
+#  Problem 1
+
+(50 points total)
+
+**Mapping US Flights**
+
+*a.  (10 points)  Load the `airports` and `routes` datasets from `Fall2017_Lecture19RDemo.html` on Canvas.  Use `ggmap` to create a map centered on the continental United States.  Add points corresponding to the location of each airport, sized by the **number of arriving flights** at that airport.*
+
+*Note: Sometimes `get_map()` runs into trouble when knitting, if the internet connection times out. If you re-knit once or twice, it should work. But we suggest putting the R code block where you load `ggmap` and run `get_map()` as the first code block, so that you don't waste time loading other things before this error happens.*
+
+```{r, warning=FALSE, message=FALSE}
+## Load ggmap and run get_map() in the very first code block,
+## in case it times out and causes a knitting error
+
+library(ggmap)
+library(tidyverse)
+library(sp)
+map <- get_map(location = 'United States', zoom = 3)
+```
+
+```{r, warning=FALSE, message=FALSE}
+## Empty placeholder R code block for you to start the rest of the problem
+#  Load and format airports data
+airports <- read_csv("https://raw.githubusercontent.com/jpatokal/openflights/master/data/airports.dat",
+                     col_names = c("ID", "name", "city", "country", "IATA_FAA", 
+                                   "ICAO", "lat", "lon", "altitude", "timezone", "DST"))
+
+#  Load and format routes data
+routes <- read_csv("https://raw.githubusercontent.com/jpatokal/openflights/master/data/routes.dat",
+                   col_names = c("airline", "airlineID", "sourceAirport", 
+                                 "sourceAirportID", "destinationAirport", 
+                                 "destinationAirportID", "codeshare", "stops",
+                                 "equipment"))
+
+#  Manipulate the routes data to create two new data.frames
+#    one for arrivals, one for departures.  
+#  Each counts the number of flights arriving/departing from each airport.
+departures <- routes %>%
+  group_by(sourceAirportID) %>%
+  summarize(flights = n()) %>%
+  mutate(sourceAirportID = as.integer(as.vector(sourceAirportID)))
+
+arrivals <- routes %>%
+  group_by(destinationAirportID) %>%
+  summarize(flights = n()) %>%
+  mutate(destinationAirportID = as.integer(as.vector(destinationAirportID)))
+
+#  Merge each of the arrivals/departures data.frames with the airports data.frame above
+airportD <- left_join(airports, departures, by = c("ID" = "sourceAirportID"))
+airportA <- left_join(airports, arrivals, by = c("ID" = "destinationAirportID"))
+
+#  Create data.frame of routes to/from a specific city
+my_airport_code <- "PIT"
+my_routes <- filter(routes, 
+                    sourceAirport == my_airport_code | 
+                      destinationAirport == my_airport_code)
+
+#  Add in relevant information from the airports data.frame
+#  Do this in two steps, so that you first pull in the source airport information
+#  and then pull in the destination airport information
+#  This can be done easily with two calls to left_join()
+#  The rest of the code is just formatting
+my_airport_data <- my_routes %>%
+  left_join(airports, by = c("sourceAirport" = "IATA_FAA")) %>%
+  select(destinationAirport, lat, lon, timezone) %>%
+  rename(source_lat = lat, source_lon = lon, source_timezone = timezone) %>%
+  left_join(airports, by = c("destinationAirport" = "IATA_FAA")) %>%
+  select(source_lat, source_lon, source_timezone, lat, lon, timezone) %>%
+  rename(dest_lat = lat, dest_lon = lon, dest_timezone = timezone)
+
+```
+
+```{r, warning=FALSE, message=FALSE}
+airports_map <- ggmap(map) +
+  geom_point(aes(x = lon, y = lat, size = flights), data = airportA, alpha = 0.5) +
+  scale_y_continuous(limits = c(25,50)) +
+  scale_x_continuous(limits = c(-127,-68)) +
+  labs(
+    title = "Map of Airports by Arrival Flights",
+    x = "Longitude",
+    y = "Latitude",
+    size = "# of Arrival Flights",
+    source = "OpenFlights.org"
+  )
+
+airports_map
+```
+
+*Note: It's OK to use the same zoom and default basemap limits as in lecture. But if you (optionally) want to show a cleaner, rectangular basemap that displays the whole continental USA, you can adjust the `zoom` argument to `get_map()` and the `limits` argument in `scale_x_continuous()` and `scale_y_continuous()`, as in [the example at this link](https://stackoverflow.com/questions/31316076/non-square-rectangular-maps-in-r-ggmap).*
+
+*b.  (25 points)  This year's JSM (Joint Statistical Meetings) conference will be held in Vancouver, BC, Canada. Let's see which US airports have direct flights to Vancouver.*
+
+*Recreate your plot in (a).  This time, manipulate the `routes` and `airports` datasets so that you can use [`geom_segment()`](http://ggplot2.tidyverse.org/reference/geom_segment.html) to draw a line connecting each airport for each flight listed in the `routes` dataset.  That is, draw a line that connects the departing airport and the arrival airport.  Do this **only** for flights that either depart from or arrive at the Vancouver, BC airport (`YVR`).*
+
+```{r, warning = FALSE, message=FALSE}
+flights_data <- routes %>% 
+  filter(routes$sourceAirport == 'YVR' | routes$destinationAirport == 'YVR') %>%
+  left_join(airports, by = c("sourceAirport" = "IATA_FAA")) %>%
+  select(destinationAirport, lat, lon, timezone) %>%
+  rename(source_lat = lat, source_lon = lon, source_timezone = timezone) %>%
+  left_join(airports, by = c("destinationAirport" = "IATA_FAA")) %>%
+  select(source_lat, source_lon, source_timezone, lat, lon, timezone) %>%
+  rename(dest_lat = lat, dest_lon = lon, dest_timezone = timezone)
+
+airports_map +
+  geom_segment(aes(x = source_lon, y = source_lat, xend = dest_lon,
+                   yend = dest_lat), data = flights_data) +
+  scale_x_continuous(limits = c(-125,-68)) +
+  labs(
+    title = "Flights Directly To/From Vancouver"
+  )
+```
+
+*c.  (15 points)  Calculate the change in time zones for each flight.  When doing this, New York City to Vancouver, BC should be +3, and Vancouver, BC to New York City should be -3.  Recreate your graph in (b).  This time, color the lines by the change in time zones of each flight.  Use an appropriate three-color gradient or diverging color scheme to do this, with a sensible midpoint.  Be sure to include a detailed legend.*
+
+*This time, do this only for flights that **arrive at** the Vancouver, BC airport (`YVR`).*
+
+```{r, warning=FALSE, message=FALSE}
+flights_data <- routes %>% 
+  filter(routes$destinationAirport == 'YVR') %>%
+  left_join(airports, by = c("sourceAirport" = "IATA_FAA")) %>%
+  select(destinationAirport, lat, lon, timezone) %>%
+  rename(source_lat = lat, source_lon = lon, source_timezone = timezone) %>%
+  left_join(airports, by = c("destinationAirport" = "IATA_FAA")) %>%
+  select(source_lat, source_lon, source_timezone, lat, lon, timezone) %>%
+  rename(dest_lat = lat, dest_lon = lon, dest_timezone = timezone)
+
+flights_data$time_diff = flights_data$source_timezone - flights_data$dest_timezone
+
+flights_data <- filter(flights_data, flights_data$time_diff <= 4 & flights_data$time_diff >= 0)
+
+airports_map +
+  scale_color_gradient2(low = '#ef8a62', mid = 'Grey', high = '#67a9cf', midpoint = 1) +
+  geom_segment(aes(x = source_lon, y = source_lat, xend = dest_lon, yend = dest_lat,
+                   size = 1.25, color = time_diff), data = flights_data) +
+  labs(
+    title = "Flights Directly To Vancouver"
+  )
+```
+
+
+***
+***
+
+
+#  Problem 2
+
+(50 points)
+
+**Choropleth Maps of Child Poverty Rates**
+
+*a.  (0 points)  Load the ACS2015 demographics dataset (from Kaggle), which is provided to you.*
+
+```{r, message = FALSE}
+acs <- read_csv("http://civilstat.com/datavis/315_code_and_data/acs2015_county_data.csv")
+```
+
+*b.  (25 points)  Create a choropleth map showing the average child poverty rate **at the state level.** Make sure you create a tenable estimate for the state level rate (e.g. use some sort of weighted mean approach). Use an appropriate three-color gradient or diverging color scheme, with a sensible midpoint (such as the national poverty rate or the median across counties).  Describe the graph, pointing out any interesting features of the spatial distribution of the child poverty rates in the US.*
+
+```{r}
+#Facet by state
+states <- split(acs, acs$State)
+
+#Function to calculate weighted average of child poverty
+state_average <- function(state.df){
+  #Weight by percentage of state population
+  total.pop <- sum(state.df$TotalPop)
+  weights = state.df$TotalPop/total.pop
+  
+  return(weighted.mean(state.df$ChildPoverty, weights))
+}
+
+#Apply the function to every state dataframe
+state_poverty <- lapply(states, state_average)
+
+#For our midpoint we use the median child poverty rate so roughly half the states
+#Will be above the median and half below
+midpoint <- median(acs$ChildPoverty, na.rm = TRUE)
+
+#Convert the list to a dataframe and rename columns
+state_poverty <- stack(state_poverty) %>%
+  rename(State = ind, child_poverty = values)
+
+#Make state names consistent between dataframes
+state_poverty$State = tolower(state_poverty$State)
+
+state_borders <- map_data("state") %>%
+  left_join(state_poverty, by = c("region" = "State"))
+
+ggplot(state_borders) + 
+  geom_polygon(aes(x = long, y = lat, group = group,
+                   fill = child_poverty), color = "black") +
+  scale_fill_gradient2(low = "darkgreen", mid = "lightgrey", 
+                        high = "darkorchid4", midpoint = midpoint) +
+  theme_void() +#Get rid of lat, lon axes
+  coord_map("polyconic") + 
+  labs(
+    title = "Child Poverty Percent by State",
+    subtitle = "Percent of Population in State",
+    caption = "US Census Bureau American Community Survey(2015)",
+    fill = "Child Poverty %"
+  ) + 
+  theme(legend.position = "bottom")
+```
+
+*c.  (25 points)  Create a choropleth map showing the the child poverty rate **at the county level.**  Again, use an appropriate three-color gradient or diverging color scheme, with a sensible midpoint.  Describe the graph, pointing out any interesting features of the spatial distribution of child poverty rates.*
+
+```{r}
+state_borders <- map_data("state")
+county_borders <- map_data("county")
+
+county_poverty <- select(acs, County, ChildPoverty)
+county_poverty$County <- tolower(county_poverty$County)
+county_borders <- left_join(county_borders, county_poverty,
+                            by = c("subregion" = "County"))
+
+ggplot() + 
+  geom_polygon(aes(long, lat, group=group, fill = ChildPoverty),
+              data = county_borders) + 
+  geom_polygon(aes(long, lat, group=group), color = 'white',
+               fill = NA, data = state_borders) + 
+  scale_fill_gradient2(low = "#998ec3", mid = "#ffffbf", 
+                      high = "#fc8d59", midpoint = 22.7) +
+  theme_bw() + theme(axis.text = element_blank(), 
+                     axis.title = element_blank()) +
+  labs(
+    title = "Child Poverty Rate by County",
+    fill = "Child Poverty Rate",
+    caption = "US Census Bureau American Community Survey(2015)"
+  )
+
+```
+
+*Hint:  For parts (b) and (c) above, it may help to use the following:*
+
++  *the following functions from the `dplyr` package (part of `tidyverse`):  `group_by()`, `summarize()`, and `left_join()`*
++  *`state.name` objects, e.g. with `state_data <- data_frame(state.name)`*
++  *the `tolower()` function*
+
+*Specifically, for the state-level graph, you'll want to:*
+
++  *`group_by` the poverty data by state, then `summarize` it (as a mean weighted on the total population, with NA's removed), so that you have a new dataset with one row per state*
++  *Get the `state_borders` data*
++  *Connect the state names in `state_borders` to the state names from your summarized poverty dataset and add the poverty rates to the `state_borders` dataset*
++  *Plot it like we did in Lecture*
++  *Use a similar process for the county-level graph, but skip the weighted-mean `summarize`, and remember to `left_join` by the combination of **both** state and county names*
+
+
+***
