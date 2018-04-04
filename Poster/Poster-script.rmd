@@ -1,0 +1,26 @@
+---
+title: "Poster-Script"
+author: "Anthony Chan"
+date: "April 4, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r dependencies}
+library(tidyverse)
+```
+
+```{r import_data}
+df = read.csv("Online_Retail_Raw.csv")
+```
+
+```{r}
+by_country = split(df, f = df$Country)
+
+by_customer = split(df, f = df$CustomerID)
+
+by_invoice = split(df, f = df$InvoiceNo)
+```
