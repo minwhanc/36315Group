@@ -64,8 +64,10 @@ output:
 
 **What you have to turn in**:  
 
-+  A link to the dataset
-+  A brief (no more than two paragraphs) description of the dataset, including number of rows, number of columns, explaining what each observation corresponds to, giving an overview of the columns/variables, etc.
+
+https://archive.ics.uci.edu/ml/datasets/Online+Retail#
+541,909 rows and 8 columns.  Each observation corresponds to a particular item on a purchase. The invoice number is the purchase ID, the stock code is the item number, the description is a basic overview of the product, the quantity is the number of the itmes purchased, the invoice date is the date of the purchase, the unit price is the price of the item, the customerId is the unique identifier of each customer, and the country is the identifier for each country.
+
 
 ***
 ***
