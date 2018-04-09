@@ -1,0 +1,61 @@
+---
+title: "36-315 Poster Graph, Spring 2018"
+author: "M. Alexander Cho (minwhanc)"
+date: "April 7, 2018"
+output:
+  pdf_document: 
+    latex_engine: xelatex
+  html_document:
+    df_print: paged
+---
+```{r echo=FALSE}
+library(GGally)
+library(lubridate)
+library(tidyverse)
+library(plyr)
+retail <- read.csv("https://raw.githubusercontent.com/minwhanc/36315Group/master/Poster/Online_Retail_Raw.csv")
+
+non_european <- c("Australia", "Bahrain", "Brazil", "Canada", "Hong Kong", "Israel",
+                  "Lebanon", "Japan", "RSA", "Saudi Arabia", "Singapore", 
+                  "United Arab Emirates", "Unspecified", "USA")
+retail <- retail[!(retail$Country %in% non_european),]
+retail$Country <- factor(retail$Country)
+
+retail$Revenue <- retail$Quantity * retail$UnitPrice
+retail$InvoiceDate2 <- as.Date(retail$InvoiceDate, format = '%m/%d/%Y','%h:%m')
+retail$Date <- format(as.Date(retail$InvoiceDate2), '%Y/%m')
+
+retail$InvoiceDate3 <- as.Date(retail$InvoiceDate2, format = '%m/%d/%Y')
+retail$Day <- weekdays(as.Date(retail$InvoiceDate3, '%m/%d/%Y'))
+
+retail$Time <- format(as.POSIXct(strptime(retail$InvoiceDate, "%m/%d/%Y %H:%M")), format = "%H:%M")
+retail$hour <- format(as.POSIXct(retail$Time, format="%H:%M"),"%H")
+retail$Hour <- as.numeric(retail$hour)
+
+retail_sub2 <- select(retail, Revenue, Day, Hour)
+retail_sub2 <- mutate(retail_sub2,
+                      Hour = cut(Hour, c(-Inf, 11, 17, Inf),
+                                 labels = c("Morning", "Afternoon", "Evening")))
+retail_sub2 <- retail_sub2[!(retail_sub2$Revenue < 0),]
+
+retail_wkdy <- ddply(retail_sub2, .(Day, Hour), summarize, Mean = mean(Revenue))
+
+retail_wkdy$Day <- ordered(retail_wkdy$Day, levels=c("Monday", "Tuesday", "Wednesday", "Thursday", 
+"Friday", "Saturday", "Sunday"))
+
+ggplot(retail_wkdy, aes(x = Day, y = Mean, fill = Hour)) +
+  geom_bar(stat = "identity") +
+  labs(x = NULL, y = "Average Spending (pounds)", fill = NULL)
+
+#retail_sub <- select(retail, Country, Revenue, Date)
+#retail_rev <- ddply(retail_sub, .(Country, Date), summarize, TotalRevenue = sum(Revenue))
+#retail_rev2 <- retail_rev[!(retail_rev$Country == "United Kingdom"),]
+
+#ggplot(retail_rev, aes(x = Date, y = TotalRevenue, fill = Country)) +
+#  geom_bar(stat = "identity") +
+#  theme(legend.position = "bottom")
+
+#ggplot(retail_rev2, aes(x = Date, y = TotalRevenue, fill = Country)) +
+#  geom_bar(stat = "identity") +
+#  theme(legend.position = "bottom")
+```
